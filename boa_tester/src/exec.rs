@@ -36,7 +36,12 @@ impl TestSuite {
         let suites: Vec<_> = self.suites.iter().map(|suite| suite.run(harness)).collect();
 
         // TODO: in parallel
-        let tests: Vec<_> = self.tests.iter().map(|test| test.run(harness)).collect();
+        let tests: Vec<_> = self
+            .tests
+            .iter()
+            .map(|test| test.run(harness))
+            .flatten()
+            .collect();
 
         if CLI.verbose() {
             println!();
@@ -89,52 +94,40 @@ impl TestSuite {
 
 impl Test {
     /// Runs the test.
-    pub(crate) fn run(&self, harness: &Harness) -> TestResult {
+    pub(crate) fn run(&self, harness: &Harness) -> Vec<TestResult> {
+        let mut results = Vec::new();
+        if self.flags.contains(TestFlags::STRICT) {
+            results.push(self.run_once(harness, true));
+        }
+
+        if self.flags.contains(TestFlags::NO_STRICT) || self.flags.contains(TestFlags::RAW) {
+            results.push(self.run_once(harness, false));
+        }
+
+        results
+    }
+
+    /// Runs the test once, in strict or non-strict mode
+    fn run_once(&self, harness: &Harness, strict: bool) -> TestResult {
         // println!("Starting `{}`", self.name);
 
         let (result, result_text) = if !self.flags.intersects(TestFlags::ASYNC | TestFlags::MODULE)
             && !IGNORED.contains(&self.name)
-            && (matches!(self.expected_outcome, Outcome::Positive) || matches!(self.expected_outcome, Outcome::Negative {
-                phase: Phase::Parse,
-                error_type: _,
-            })) {
+            && (matches!(self.expected_outcome, Outcome::Positive)
+                || matches!(self.expected_outcome, Outcome::Negative {
+                    phase: Phase::Parse,
+                    error_type: _,
+                })) {
             let res = panic::catch_unwind(|| match self.expected_outcome {
                 Outcome::Positive => {
-                    let mut passed = true;
-                    let mut text = String::new();
+                    let mut engine = self.set_up_env(&harness, strict);
+                    let res = engine.eval(&self.content);
 
-                    if self.flags.contains(TestFlags::RAW) {
-                        let mut engine = self.set_up_env(&harness, false);
-                        let res = engine.eval(&self.content);
-
-                        passed = res.is_ok();
-                        text = match res {
-                            Ok(val) => format!("{}", val.display()),
-                            Err(e) => format!("Uncaught {}", e.display()),
-                        };
-                    } else {
-                        if self.flags.contains(TestFlags::STRICT) {
-                            let mut engine = self.set_up_env(&harness, true);
-                            let res = engine.eval(&self.content);
-
-                            passed = res.is_ok();
-                            text = match res {
-                                Ok(val) => format!("{}", val.display()),
-                                Err(e) => format!("Uncaught {}", e.display()),
-                            };
-                        }
-
-                        if passed && self.flags.contains(TestFlags::NO_STRICT) {
-                            let mut engine = self.set_up_env(&harness, false);
-                            let res = engine.eval(&self.content);
-
-                            passed = res.is_ok();
-                            text = match res {
-                                Ok(val) => format!("{}", val.display()),
-                                Err(e) => format!("Uncaught {}", e.display()),
-                            };
-                        }
-                    }
+                    let passed = res.is_ok();
+                    let text = match res {
+                        Ok(val) => format!("{}", val.display()),
+                        Err(e) => format!("Uncaught {}", e.display()),
+                    };
 
                     (passed, text)
                 }
@@ -149,7 +142,7 @@ impl Test {
                         self.name
                     );
 
-                    match parse(&self.content) {
+                    match parse(&self.content, strict) {
                         Ok(n) => (false, format!("{:?}", n)),
                         Err(e) => (true, format!("Uncaught {}", e)),
                     }
@@ -192,6 +185,7 @@ impl Test {
 
         TestResult {
             name: self.name.clone(),
+            strict,
             result,
             result_text: result_text.into_boxed_str(),
         }

@@ -1,11 +1,11 @@
-use super::{SuiteResult, TestOutcomeResult, CLI};
+use super::{SuiteResult, CLI};
 use git2::Repository;
 use hex::ToHex;
 use serde::{Deserialize, Serialize};
 use std::{
     env, fs,
     io::{self, BufReader, BufWriter},
-    path::{PathBuf, Path},
+    path::Path,
 };
 
 /// Structure to store full result information.
@@ -130,45 +130,4 @@ fn get_test262_commit() -> Box<str> {
         .expect("could not get the commit OID")
         .encode_hex::<String>()
         .into_boxed_str()
-}
-
-/// Compares the current results with previous ones.
-pub(crate) fn compare(results: &SuiteResult) -> io::Result<Option<ResultsComparison>> {
-    if let Some(path) = CLI.compare() {
-        if !path.exists() {
-            return Err(io::Error::new(io::ErrorKind::NotFound, format!("{} file not found", path.display())))
-        }
-
-        let reader = BufReader::new(fs::File::open(path)?);
-
-        let old_results: ResultInfo = serde_json::from_reader(reader)?;
-        dbg!(old_results);
-
-        let mut current_path = PathBuf::new();
-        for (new_suite, old_suite) in old_results.results.into_iter().zip(results.iter()) {
-            dbg!(new_suite, old_suite);
-        }
-
-        todo!();
-    } else {
-        Ok(None)
-    }
-}
-
-/// Results of a test comparison
-pub(crate) struct ResultsComparison {
-    new_failures: Box<[FullTestOutcome]>,
-    new_fixes: Box<[FullTestOutcome]>,
-}
-
-/// Similar to a `TestResult`, but with the full path to the file.
-pub(crate) struct FullTestOutcome {
-    test_path: Box<Path>,
-    result_text: Box<str>,
-    result: TestOutcomeResult,
-}
-
-/// Prints the result comparison.
-pub(crate) fn print_comparison(comparison: ResultsComparison) -> io::Result<()> {
-    todo!("print comparison")
 }

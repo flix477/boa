@@ -42,7 +42,7 @@ mod results;
 
 use self::{
     read::{read_global_suite, read_harness, MetaData, Negative, TestFlag},
-    results::{compare, write_json, print_comparison},
+    results::write_json,
 };
 use bitflags::bitflags;
 use fxhash::FxHashMap;
@@ -65,15 +65,6 @@ struct Cli {
     #[structopt(short, long)]
     verbose: bool,
 
-    /// Whether to display the output in markdown (useful to create GitHub comments).
-    ///
-    /// Note: this output will be written in an `out.md` file.
-    #[structopt(short = "md", long)]
-    markdown: bool,
-
-    /// An optional JSON Test262 result to compare these results with.
-    compare: Option<PathBuf>,
-
     /// Path to the Test262 suite.
     #[structopt(long, parse(from_os_str), default_value = "./test262")]
     test262_path: PathBuf,
@@ -87,18 +78,6 @@ impl Cli {
     /// Whether to show verbose output.
     fn verbose(&self) -> bool {
         self.verbose
-    }
-
-    /// Whether to display the output in markdown (useful to create GitHub comments).
-    ///
-    /// Note: this output will be written in an `out.md` file.
-    fn markdown(&self) -> bool {
-        self.markdown
-    }
-
-    /// An optional JSON Test262 result to compare these results with.
-    fn compare(&self) -> Option<&Path> {
-        self.compare.as_deref()
     }
 
     /// Path to the Test262 suite.
@@ -146,10 +125,6 @@ fn main() {
         (results.passed as f64 / results.total as f64) * 100.0
     );
 
-    if let Some(comparison) = compare(&results).expect("could not compare the results with previous results") {
-        print_comparison(comparison).expect("could not write the comparison");
-    }
-
     write_json(results).expect("could not write the results to the output JSON file");
 }
 
@@ -195,6 +170,8 @@ struct SuiteResult {
 struct TestResult {
     #[serde(rename = "n")]
     name: Box<str>,
+    #[serde(rename = "s")]
+    strict: bool,
     #[serde(skip)]
     result_text: Box<str>,
     #[serde(rename = "r")]
