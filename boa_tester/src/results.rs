@@ -70,6 +70,9 @@ pub(crate) fn write_json(
             branch = "pull".to_owned();
         }
 
+        // We make sure we are using the latest commit information in GitHub pages:
+        update_gh_pages_repo();
+
         let path = if branch.is_empty() {
             path.to_path_buf()
         } else {
@@ -134,4 +137,55 @@ fn get_test262_commit() -> Box<str> {
         .expect("could not get the commit OID")
         .encode_hex::<String>()
         .into_boxed_str()
+}
+
+/// Updates the GitHub pages repository by pulling latest changes before writing the new things.
+fn update_gh_pages_repo() {
+    if env::var("GITHUB_REF").is_ok() {
+        use std::process::Command;
+
+        // We run the command to pull the gh-pages branch: git -C ../gh-pages/ pull origin
+        Command::new("git")
+            .args(&["-C", "../gh-pages", "pull", "--ff-only"])
+            .output()
+            .expect("could not update GitHub Pages");
+    }
+}
+
+/// Compares the results of two test suite runs.
+pub(crate) fn compare_results(base: &Path, new: &Path, markdown: bool) {
+    let base_results: ResultInfo = serde_json::from_reader(BufReader::new(
+        fs::File::open(base).expect("could not open the base results file"),
+    ))
+    .expect("could not read the base results");
+
+    let new_results: ResultInfo = serde_json::from_reader(BufReader::new(
+        fs::File::open(new).expect("could not open the new results file"),
+    ))
+    .expect("could not read the new results");
+
+    if base_results.results.total != new_results.results.total
+        || base_results.results.passed != new_results.results.passed
+        || base_results.results.ignored != new_results.results.ignored
+        || base_results.results.panic != new_results.results.panic
+    {
+        for (base_suite, new_suite) in base_results
+            .results
+            .suites
+            .into_iter()
+            .zip(new_results.results.suites.into_iter())
+        {
+            compare_suite(base_suite, new_suite)
+        }
+    } else if markdown {
+            println!("## Test262 conformance changes:");
+            println!("No changes found.");
+        } else {
+            println!("No Test262 conformance changes found.");
+        }
+}
+
+/// Compares two suite results.
+fn compare_suite(base: SuiteResult, new: SuiteResult) {
+    todo!()
 }

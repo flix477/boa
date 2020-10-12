@@ -42,7 +42,7 @@ mod results;
 
 use self::{
     read::{read_global_suite, read_harness, MetaData, Negative, TestFlag},
-    results::write_json,
+    results::{compare_results, write_json},
 };
 use bitflags::bitflags;
 use fxhash::FxHashMap;
@@ -141,11 +141,6 @@ fn run_test_suite(verbose: u8, test262_path: &Path, output: Option<&Path>) {
 
     write_json(results, output, verbose)
         .expect("could not write the results to the output JSON file");
-}
-
-/// Compares the results of two test suite runs.
-fn compare_results(base: &Path, new: &Path, markdown: bool) {
-    todo!("result comparison")
 }
 
 /// All the harness include files.
