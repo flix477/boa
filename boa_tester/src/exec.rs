@@ -1,8 +1,7 @@
 //! Execution module for the test runner.
 
 use super::{
-    Harness, Outcome, Phase, SuiteResult, Test, TestFlags, TestOutcomeResult, TestResult,
-    TestSuite, CLI,
+    Harness, Outcome, Phase, SuiteResult, Test, TestFlags, TestOutcomeResult, TestResult, TestSuite,
 };
 use boa::{parse, Context};
 use colored::Colorize;
@@ -27,23 +26,27 @@ static IGNORED: Lazy<FxHashSet<Box<str>>> = Lazy::new(|| {
 
 impl TestSuite {
     /// Runs the test suite.
-    pub(crate) fn run(&self, harness: &Harness) -> SuiteResult {
-        if CLI.verbose() {
+    pub(crate) fn run(&self, harness: &Harness, verbose: u8) -> SuiteResult {
+        if verbose != 0 {
             println!("Suite {}:", self.name);
         }
 
         // TODO: in parallel
-        let suites: Vec<_> = self.suites.iter().map(|suite| suite.run(harness)).collect();
+        let suites: Vec<_> = self
+            .suites
+            .iter()
+            .map(|suite| suite.run(harness, verbose))
+            .collect();
 
         // TODO: in parallel
         let tests: Vec<_> = self
             .tests
             .iter()
-            .map(|test| test.run(harness))
+            .map(|test| test.run(harness, verbose))
             .flatten()
             .collect();
 
-        if CLI.verbose() {
+        if verbose != 0 {
             println!();
         }
 
@@ -69,7 +72,7 @@ impl TestSuite {
             panic += suite.panic;
         }
 
-        if CLI.verbose() {
+        if verbose != 0 {
             println!(
                 "Results: total: {}, passed: {}, ignored: {}, panics: {}, conformance: {:.2}%",
                 total,
@@ -94,22 +97,28 @@ impl TestSuite {
 
 impl Test {
     /// Runs the test.
-    pub(crate) fn run(&self, harness: &Harness) -> Vec<TestResult> {
+    pub(crate) fn run(&self, harness: &Harness, verbose: u8) -> Vec<TestResult> {
         let mut results = Vec::new();
         if self.flags.contains(TestFlags::STRICT) {
-            results.push(self.run_once(harness, true));
+            results.push(self.run_once(harness, true, verbose));
         }
 
         if self.flags.contains(TestFlags::NO_STRICT) || self.flags.contains(TestFlags::RAW) {
-            results.push(self.run_once(harness, false));
+            results.push(self.run_once(harness, false, verbose));
         }
 
         results
     }
 
     /// Runs the test once, in strict or non-strict mode
-    fn run_once(&self, harness: &Harness, strict: bool) -> TestResult {
-        // println!("Starting `{}`", self.name);
+    fn run_once(&self, harness: &Harness, strict: bool, verbose: u8) -> TestResult {
+        if verbose > 1 {
+            println!(
+                "Starting `{}`{}",
+                self.name,
+                if strict { " (strict mode)" } else { "" }
+            );
+        }
 
         let (result, result_text) = if !self.flags.intersects(TestFlags::ASYNC | TestFlags::MODULE)
             && !IGNORED.contains(&self.name)

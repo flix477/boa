@@ -1,6 +1,6 @@
 //! Module to read the list of test suites from disk.
 
-use super::{Harness, Locale, Phase, Test, TestSuite, CLI};
+use super::{Harness, Locale, Phase, Test, TestSuite};
 use fxhash::FxHashMap;
 use serde::Deserialize;
 use std::{fs, io, path::Path};
@@ -53,10 +53,10 @@ pub(super) enum TestFlag {
 }
 
 /// Reads the Test262 defined bindings.
-pub(super) fn read_harness() -> io::Result<Harness> {
+pub(super) fn read_harness(test262_path: &Path) -> io::Result<Harness> {
     let mut includes = FxHashMap::default();
 
-    for entry in fs::read_dir(CLI.test262_path().join("harness"))? {
+    for entry in fs::read_dir(test262_path.join("harness"))? {
         let entry = entry?;
         let file_name = entry.file_name();
         let file_name = file_name.to_string_lossy();
@@ -72,8 +72,8 @@ pub(super) fn read_harness() -> io::Result<Harness> {
             content.into_boxed_str(),
         );
     }
-    let assert = fs::read_to_string(CLI.test262_path().join("harness/assert.js"))?.into_boxed_str();
-    let sta = fs::read_to_string(CLI.test262_path().join("harness/sta.js"))?.into_boxed_str();
+    let assert = fs::read_to_string(test262_path.join("harness/assert.js"))?.into_boxed_str();
+    let sta = fs::read_to_string(test262_path.join("harness/sta.js"))?.into_boxed_str();
 
     Ok(Harness {
         assert,
@@ -83,8 +83,8 @@ pub(super) fn read_harness() -> io::Result<Harness> {
 }
 
 /// Reads the global suite from disk.
-pub(super) fn read_global_suite() -> io::Result<TestSuite> {
-    let path = CLI.test262_path().join("test");
+pub(super) fn read_global_suite(test262_path: &Path) -> io::Result<TestSuite> {
+    let path = test262_path.join("test");
 
     Ok(read_suite(path.as_path())?)
 }

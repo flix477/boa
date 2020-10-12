@@ -1,4 +1,4 @@
-use super::{SuiteResult, CLI};
+use super::SuiteResult;
 use git2::Repository;
 use hex::ToHex;
 use serde::{Deserialize, Serialize};
@@ -59,8 +59,12 @@ const RESULTS_FILE_NAME: &str = "results.json";
 /// Writes the results of running the test suite to the given JSON output file.
 ///
 /// It will append the results to the ones already present, in an array.
-pub(crate) fn write_json(results: SuiteResult) -> io::Result<()> {
-    if let Some(path) = CLI.output() {
+pub(crate) fn write_json(
+    results: SuiteResult,
+    output: Option<&Path>,
+    verbose: u8,
+) -> io::Result<()> {
+    if let Some(path) = output {
         let mut branch = env::var("GITHUB_REF").unwrap_or_default();
         if branch.starts_with("refs/pull") {
             branch = "pull".to_owned();
@@ -74,7 +78,7 @@ pub(crate) fn write_json(results: SuiteResult) -> io::Result<()> {
             folder
         };
 
-        if CLI.verbose() {
+        if verbose != 0 {
             println!("Writing the results to {}...", path.display());
         }
 
@@ -106,7 +110,7 @@ pub(crate) fn write_json(results: SuiteResult) -> io::Result<()> {
         let output = BufWriter::new(fs::File::create(&all_path)?);
         serde_json::to_writer(output, &all_results)?;
 
-        if CLI.verbose() {
+        if verbose != 0 {
             println!("Results written correctly");
         }
     }

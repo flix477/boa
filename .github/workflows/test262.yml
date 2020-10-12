@@ -43,7 +43,6 @@ jobs:
 
       # Run the test suite and upload the results
       - name: Checkout GitHub pages
-        if: github.event_name == 'push'
         uses: actions/checkout@v2
         with:
           ref: gh-pages
@@ -52,9 +51,10 @@ jobs:
       - name: Run the test262 test suite
         run: |
           cd boa
-          cargo run --release --bin boa_tester -- -o ../gh-pages/test262
+          cargo run --release --bin boa_tester -- run -o ../gh-pages/test262
           cd ..
 
+      # Commit changes to GitHub pages.
       - name: Commit files
         if: github.event_name == 'push'
         run: |
